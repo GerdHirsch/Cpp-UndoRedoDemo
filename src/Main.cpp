@@ -12,11 +12,15 @@
  *
  */
 
-#include "UndoRedoManagerImpl.h"
-#include "Calculator.h"
-#include "CalculaturCommands.h"
+#include <UndoRedoFramework/ByDelegation/UndoRedoManagerImpl.h>
+#include <UndoRedoFramework/ByDelegation/UndoRedoStackImpl.h>
+#include <include/Calculator.h>
+#include <include/CalculatorCommands.h>
 
 using namespace std;
+using namespace UndoRedoFramework;
+
+using UndoRedoManager = ByDelegation::UndoRedoManager;
 
 void demoCompositeCommand();
 void demoSimpleCommand(UndoRedoManager& urMngr);
@@ -24,6 +28,10 @@ void demoUniquePtrStack();
 
 int main()
 {
+	using UndoRedoManagerImpl = ByDelegation::UndoRedoManagerImpl;
+	std::stack<Command> undoStack;
+
+
 	cout << boolalpha;
 	{
 		UndoRedoManagerImpl urMngr;
@@ -34,46 +42,52 @@ int main()
 }
 
 void demoSimpleCommand(UndoRedoManager& urMngr){
-	// Demo temporäre und lokale Objekte als Argumente
-	cout << "demoSimpleCommand()" << endl;
-	Calculator calculator;
-	cout << "Result: " << calculator.getResult() << endl;
+	try{
+		// Demo temporäre und lokale Objekte als Argumente
+		cout << "demoSimpleCommand()" << endl;
+		Calculator calculator;
+		cout << "Result: " << calculator.getResult() << endl;
 
-	cout << "Plus 42" << endl;
-//	PlusCommand plus(calculator, 42);
-//	urMngr.doIt(plus);
-	// sollten wir hier mit dem plus noch etwas tun können?
+		cout << "Plus 42" << endl;
+		Plus plus(calculator, 42);
+		urMngr.doIt(plus);
 
-	urMngr.doIt(PlusCommand(calculator, 42));
-	cout << "Result: " << calculator.getResult() << endl;
+		urMngr.doIt(Plus(calculator, 42));
+		cout << "Result: " << calculator.getResult() << endl;
 
-	cout << "Minus 24" << endl;
-	MinusCommand minus(calculator, 24);
-	MinusCommand minusTemp(minus);
+		cout << "Minus 24" << endl;
+		Minus minus(calculator, 24);
+		Minus minusTemp(minus);
 
-	urMngr.doIt(minus);
-	// sollten wir hier mit dem minus noch etwas tun können?
+		urMngr.doIt(minus);
+		// sollten wir hier mit dem minus noch etwas tun können?
 
-	cout << "Result: " << calculator.getResult() << endl;
+		cout << "Result: " << calculator.getResult() << endl;
 
-	cout << "before reset isModified: " << urMngr.isModified() << endl;
-	urMngr.resetModified();
-	cout << "after  reset isModified: " << urMngr.isModified() << endl;
+		cout << "before reset isModified: " << urMngr.isModified() << endl;
+		urMngr.resetModified();
+		cout << "after  reset isModified: " << urMngr.isModified() << endl;
 
-	cout << "urMngr.undo()" << endl;
-	urMngr.undo();
-	cout << "Result: " << calculator.getResult() << endl;
-	cout << "isModified: " << urMngr.isModified() << endl;
-
-	cout << "urMngr.redo()" << endl;
-	urMngr.redo();
-	cout << "Result: " << calculator.getResult() << endl;
-	cout << "isModified: " << urMngr.isModified() << endl;
-
-	while(urMngr.canUndo())
+		cout << "urMngr.undo()" << endl;
 		urMngr.undo();
-	cout << "Result: " << calculator.getResult() << endl;
-	cout << "isModified: " << urMngr.isModified() << endl;
+		cout << "Result: " << calculator.getResult() << endl;
+		cout << "isModified: " << urMngr.isModified() << endl;
+
+		cout << "urMngr.redo()" << endl;
+		urMngr.redo();
+		cout << "Result: " << calculator.getResult() << endl;
+		cout << "isModified: " << urMngr.isModified() << endl;
+
+		while(urMngr.isUndoable())
+			urMngr.undo();
+
+		cout << "Result: " << calculator.getResult() << endl;
+		cout << "isModified: " << urMngr.isModified() << endl;
+
+		urMngr.redo();
+	}catch(...){
+		cout << "catch" << endl;
+	}
 }
 
 void demoUniquePtrStack(){
@@ -81,13 +95,13 @@ void demoUniquePtrStack(){
 	typedef std::unique_ptr<Command> SmartPointer;
 
 	Calculator calculator;
-	PlusCommand plus(calculator, 42);
+	Plus plus(calculator, 42);
 	Command & command = plus;
 	std::stack<SmartPointer> undoStack;
 	std::stack<SmartPointer> redoStack;
 
 
-	undoStack.push( std::move(PlusCommand(calculator, 43).clone()) );
+	undoStack.push( std::move(Plus(calculator, 43).clone()) );
 	undoStack.push( std::move(command).clone() );
 	redoStack.push( std::move(undoStack.top()) );
 
